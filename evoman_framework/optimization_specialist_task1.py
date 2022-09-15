@@ -10,6 +10,8 @@
 import dataclasses
 import sys, os
 
+from matplotlib import pyplot as plt
+
 sys.path.insert(0, 'evoman')
 from environment import Environment
 from controller_task1 import player_controller
@@ -17,34 +19,36 @@ from controller_task1 import player_controller
 # imports other libs
 import numpy as np
 
-experiment_name = 'controller_specialist_demo'
+experiment_name = 'solutions_task1'
+
 if not os.path.exists(experiment_name):
     os.makedirs(experiment_name)
 
-# Update the number of neurons for this specific example
-n_hidden_neurons = 0
 
-# initializes environment for single objective mode (specialist)  with static enemy and ai player
-env = Environment(experiment_name=experiment_name,
-                  playermode="ai",
-                  player_controller=player_controller(n_hidden_neurons),
-                  speed="normal",
-                  enemymode="static",
-                  level=2)
-
-@dataclasses
-class ExperimentConfig():
+@dataclasses.dataclass
+class ExperimentConfig:
     N = 100
     D = 4
     W = 10
     generations = 100
 
-model =  [intialize, select, select2, reproduce, best]
-
 class Experiment(object):
     def __init__(self, cfg):
         self.cfg = cfg
         self.generation = 0
+        self.logs = {
+            'best_fitness': [],
+            'average_fitness': [],
+        }
+
+        n_hidden_neurons = 0
+        # initializes environment for single objective mode (specialist)  with static enemy and ai player
+        self.env = Environment(experiment_name=experiment_name,
+                          playermode="ai",
+                          player_controller=player_controller(n_hidden_neurons),
+                          speed="normal",
+                          enemymode="static",
+                          level=2)
 
     def initialize(self):
         # For now this just assumes that all layers are the same size
@@ -71,9 +75,24 @@ class Experiment(object):
         # Stop condition, return True if we want to stop running the program
         return self.generation >= self.cfg.generations
 
+    def criterion(self, fitness, player_life, enemy_life, time):
+        # We can experiment with different fitness functions here
+        return fitness
+
+    def evaluate(self, population):
+        fitness = []
+        for sol in population:
+            # fitness, player_life, enemy_life, time
+            f, p, e, t = self.env.play(sol)
+            fitness = self.criterion(f, p, e, t)
+            fitness.append(fitness)
+        return np.array(fitness)
+
     def run_iteration(self, population):
         fitness = self.evaluate(population)
+        self.logs['average_fitness'].append(np.mean(fitness))
         best, best_fitness = self.best(population, fitness)
+        self.logs['best_fitness'].append(best_fitness)
         parent_indices = self.select(population, fitness)
 
         population = self.reproduce(population[parent_indices], fitness[parent_indices])
@@ -82,36 +101,33 @@ class Experiment(object):
 
     def run(self):
         population, best, best_fitness = self.run_iteration(self.initialize())
-        while self.finish(population, best, best_fitness):
+        while self.finish(best, best_fitness):
             population = self.run_iteration(population)
 
         return best, best_fitness
+
+    def plot(self, show=False):
+        fig = plt.figure()
+        # Plot the logs
+        plt.plot(self.logs['best_fitness'], label='best')
+        plt.plot(self.logs['average_fitness'], label='average')
+        plt.legend()
+        if show:
+            plt.show()
+        else:
+            fig.savefig(f'{experiment_name}/fitness.png')
+
 
 # For the second method we can just superclass stuff
 class ExperimentVariation(Experiment):
     def select(self, population, fitness):
         pass
 
-cfg = ExperimentConfig()
-experiment = Experiment(cfg)
 
+if __name__ == '__main__':
+    cfg = ExperimentConfig()
+    experiment = Experiment(cfg)
 
-# tests saved demo solutions for each enemy
-for en in range(1, 9):
-    # Update the enemy
-    env.update_parameter('enemies', [en])
+    experiment.run()
+    experiment.plot(show=True)
 
-    # Load specialist controller
-    sol = np.loadtxt('solutions_demo/demo_' + str(en) + '.txt')
-    print('\n LOADING SAVED SPECIALIST SOLUTION FOR ENEMY ' + str(en) + ' \n')
-    # fitness, player_life, enemy_life, time
-    fitnesses = []
-    for sol in population:
-        f, p, e, t = env.play(sol)
-        fitnesses.append(f)
-
-    top10 = list(sorted(fitnesses, reverse=True))[:10]
-
-    # rcombine top10, mutate
-
-    population = ...
