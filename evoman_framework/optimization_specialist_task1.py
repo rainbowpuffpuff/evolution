@@ -37,12 +37,17 @@ class ExperimentConfig():
     N = 100
     D = 4
     W = 10
+    generations = 100
+
+model =  [intialize, select, select2, reproduce, best]
 
 class Experiment(object):
     def __init__(self, cfg):
         self.cfg = cfg
+        self.generation = 0
 
     def initialize(self):
+        # For now this just assumes that all layers are the same size
         population = np.random.choice(a=[False, True], size=(self.cfg.N, self.cfg.D, self.cfg.W, self.cfg.W), p=[0.5, 0.5])
         return population
 
@@ -58,14 +63,37 @@ class Experiment(object):
         new_population = ...
         return new_population
 
-    def finish(self, population, fitness):
-        # Stop condition, return True if the we want to stop running the program
-        return False
+    def best(self, population, fitness):
+        # Return the best agent in the population
+        return population[np.argmax(fitness)], np.max(fitness)
+
+    def finish(self, best, best_fitness):
+        # Stop condition, return True if we want to stop running the program
+        return self.generation >= self.cfg.generations
+
+    def run_iteration(self, population):
+        fitness = self.evaluate(population)
+        best, best_fitness = self.best(population, fitness)
+        parent_indices = self.select(population, fitness)
+
+        population = self.reproduce(population[parent_indices], fitness[parent_indices])
+        self.generation += 1
+        return population, best, best_fitness
+
+    def run(self):
+        population, best, best_fitness = self.run_iteration(self.initialize())
+        while self.finish(population, best, best_fitness):
+            population = self.run_iteration(population)
+
+        return best, best_fitness
 
 # For the second method we can just superclass stuff
 class ExperimentVariation(Experiment):
     def select(self, population, fitness):
         pass
+
+cfg = ExperimentConfig()
+experiment = Experiment(cfg)
 
 
 # tests saved demo solutions for each enemy
