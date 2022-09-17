@@ -4,6 +4,8 @@
 # note that the param 'controller' received by 'control' is provided through environment.play(pcont=x)
 # 'controller' could contain either weights to be used in the standard controller (or other controller implemented),
 # or even a full network structure (ex.: from NEAT).
+from dataclasses import dataclass
+
 from controller import Controller
 import numpy as np
 
@@ -11,9 +13,65 @@ import numpy as np
 def sigmoid_activation(x):
 	return 1./(1.+np.exp(-x))
 
+# implements controller structure for player
+class MaskedController(Controller):
+	def __init__(self, cfg):
+		self.cfg = cfg
+		assert self.cfg.controller == 'masked'
+
+	def control(self, inputs, controller):
+		# inputs is the inputs to the agent
+		# controller is the neural network weights and the masks
+
+		# The standard neural network normalizes the input here but that seems like a bad idea to me for this task
+
+		weights, biases, masks, final_weight, final_bias, final_mask = controller
+
+		assert weights.shape == (self.cfg.D, self.cfg.W, self.cfg.W)
+		assert biases.shape == (self.cfg.D,)
+		assert masks.shape == (self.cfg.D, self.cfg.W, self.cfg.W)
+		assert final_weight.shape == (self.cfg.W, 5)
+		assert final_bias.shape == (5,)
+		assert final_mask.shape == (self.cfg.W, 5)
+
+		for w, b, m in zip(weights, biases, masks):
+			outputs = np.dot(inputs, w * m) + b
+			inputs = sigmoid_activation(outputs)
+
+		outputs = np.dot(inputs, final_weight * final_mask) + final_bias
+		outputs = sigmoid_activation(outputs)
+
+		# takes decisions about sprite actions
+		if outputs[0] > 0.5:
+			left = 1
+		else:
+			left = 0
+
+		if outputs[1] > 0.5:
+			right = 1
+		else:
+			right = 0
+
+		if outputs[2] > 0.5:
+			jump = 1
+		else:
+			jump = 0
+
+		if outputs[3] > 0.5:
+			shoot = 1
+		else:
+			shoot = 0
+
+		if outputs[4] > 0.5:
+			release = 1
+		else:
+			release = 0
+
+		return [left, right, jump, shoot, release]
+
 
 # implements controller structure for player
-class player_controller(Controller):
+class StandardController(Controller):
 	def __init__(self, _n_hidden):
 		# Number of hidden neurons
 		self.n_hidden = [_n_hidden]
@@ -75,13 +133,16 @@ class player_controller(Controller):
 		return [left, right, jump, shoot, release]
 
 
+
 # implements controller structure for enemy
-class enemy_controller(Controller):
+class EnemyController(Controller):
 	def __init__(self, _n_hidden):
 		# Number of hidden neurons
 		self.n_hidden = [_n_hidden]
 
 	def control(self, inputs, controller):
+
+		
 		# Normalises the input using min-max scaling
 		inputs = (inputs-min(inputs))/float((max(inputs)-min(inputs)))
 

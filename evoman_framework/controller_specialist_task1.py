@@ -10,7 +10,7 @@
 import sys, os
 sys.path.insert(0, 'evoman')
 from environment import Environment
-from controller_task1 import player_controller
+from controller_task1 import MaskedController
 
 # imports other libs
 import numpy as np
@@ -25,8 +25,8 @@ n_hidden_neurons = 0
 # initializes environment for single objective mode (specialist)  with static enemy and ai player
 env = Environment(experiment_name=experiment_name,
 				  playermode="ai",
-				  player_controller=player_controller(n_hidden_neurons),
-			  	  speed="normal",
+				  player_controller=MaskedController(n_hidden_neurons),
+				  speed="normal",
 				  enemymode="static",
 				  level=2)
 
